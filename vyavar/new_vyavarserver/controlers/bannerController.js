@@ -3,6 +3,7 @@ import Product from "../models/productModel.js";
 import asyncHandler from "express-async-handler";
 import path from "path";
 import fs from "fs";
+import mongoose from "mongoose";
 
 // @desc Create add banners
 // @route POST /api/banners
@@ -86,30 +87,39 @@ const getBanners = asyncHandler(async (req, res) => {
 // @route POST /api/videobanners
 // @access Private / Admin
 const addvideobanner = asyncHandler(async (req, res) => {
-  console.log("Received Upload Request"); // ✅ Log request start
-  console.log("Request Body:", req.body); // ✅ Log the body
-  console.log("Uploaded File:", req.file); // ✅ Log uploaded file
-  const { productId } = req.body; // Get productId from request body
+  console.log("🎥 Received Upload Request");
+  console.log("Request Body:", req.body);
+  console.log("Uploaded File:", req.file);
+
+  const { productId } = req.body;
+
   if (!req.file) {
     return res.status(400).json({ message: "No video uploaded." });
   }
-  const product = await Product.findById(productId);
 
+  // ✅ Check product exists
+  const product = await Product.findById(productId);
   if (!product) {
     return res.status(404).json({ message: "Product not found" });
   }
-  // Create video banner object
+
+  // ✅ Create video banner with unique ID
   const videoBanner = {
+    _id: new mongoose.Types.ObjectId(), // Unique video ID
     videoUrl: req.file.path,
+    uploadedAt: new Date(),
   };
 
-  // Add the video banner to the product's VideoBanner array
+  // ✅ Push to product's VideoBanner array
   product.VideoBanner.push(videoBanner);
   await product.save();
-  console.log("Video Banner Added Successfully:", videoBanner);
-  res
-    .status(201)
-    .json({ message: "Video banner added successfully", videoBanner });
+
+  console.log("✅ Video Banner Added Successfully:", videoBanner);
+
+  res.status(201).json({
+    message: "Video banner added successfully",
+    videoBanner,
+  });
 });
 // @desc getvideoBanners
 // @route get /api/videobanners

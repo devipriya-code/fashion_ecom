@@ -8,7 +8,7 @@ import sendEmail from "../utils/sendEmail.js";
 // @route POST /api/orders
 // @access Private
 const addorderitems = asyncHandler(async (req, res) => {
-  console.log(req.user);
+  console.log("🛒 Order request received from:", req.user.email);
 
   const {
     orderItems,
@@ -20,50 +20,76 @@ const addorderitems = asyncHandler(async (req, res) => {
     totalPrice,
     shippingRates,
   } = req.body;
-  if (orderItems && orderItems.length === 0) {
+
+  if (!orderItems || orderItems.length === 0) {
     res.status(400);
     throw new Error("No order items");
-    return;
-  } else {
-    const order = new Order({
-      user: req.user._id,
-      orderItems,
-      shippingAddress,
-      paymentMethod,
-      itemsPrice,
-      taxPrice,
-      shippingPrice,
-      totalPrice,
-      shippingRates,
-    });
-    const createdOrder = await order.save();
-    try {
-      const user = req.user; // Assuming you've attached user in middleware
-      await sendEmail({
-        email: user.email,
-        status: "Created",
-        orderId: createdOrder._id,
-      });
-      console.log("✅ Order status email sent");
-    } catch (error) {
-      console.error("❌ Error sending order email:", error.message);
-    }
-    // Update user orderHistory
-    await User.findByIdAndUpdate(req.user._id, {
-      $push: { orderHistory: createdOrder._id },
-    });
-    // REMOVE CARTITEMS AFTER PURCHASED PRODUCT STARTS
-    try {
-      await User.findByIdAndUpdate(req.user._id, {
-        $set: { cartItems: [] },
-      });
-      console.log("🧹 User cartItems cleared");
-    } catch (err) {
-      console.error("❌ Failed to clear cartItems:", err.message);
-    }
-    // REMOVE CARTITEMS AFTER PURCHASED PRODUCT ENDS
-    res.status(201).json(createdOrder);
   }
+
+  // ✅ Identify if it's COD
+  const isCOD = paymentMethod === "Cash on Delivery";
+
+  const order = new Order({
+    user: req.user._id,
+    orderItems,
+    shippingAddress,
+    paymentMethod,
+    itemsPrice,
+    taxPrice,
+    shippingPrice,
+    totalPrice,
+    shippingRates,
+    isPaid: !isCOD, // false for COD, true for online
+    paidAt: !isCOD ? Date.now() : null,
+    paymentResult: isCOD
+      ? {
+          id: "COD-" + Date.now(),
+          status: "Pending (Cash on Delivery)",
+          update_time: new Date().toISOString(),
+          email_address: req.user.email,
+        }
+      : req.body.paymentResult || {},
+  });
+
+  let createdOrder;
+  try {
+    createdOrder = await order.save();
+    console.log("✅ Order saved successfully:", createdOrder._id);
+  } catch (err) {
+    console.error("❌ Mongoose Save Error:", err.message);
+    return res
+      .status(500)
+      .json({ message: "Order not saved", error: err.message });
+  }
+
+  // ✅ Send order confirmation email
+  try {
+    await sendEmail({
+      email: req.user.email,
+      status: "Created",
+      orderId: createdOrder._id,
+    });
+    console.log("✅ Order status email sent to:", req.user.email);
+  } catch (error) {
+    console.error("❌ Error sending order email:", error.message);
+  }
+
+  // ✅ Update user order history
+  await User.findByIdAndUpdate(req.user._id, {
+    $push: { orderHistory: createdOrder._id },
+  });
+
+  // ✅ Clear cart
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      $set: { cartItems: [] },
+    });
+    console.log("🧹 User cartItems cleared");
+  } catch (err) {
+    console.error("❌ Failed to clear cartItems:", err.message);
+  }
+
+  res.status(201).json(createdOrder);
 });
 // @desc get order by id
 // @route GET /api/orders/:id
@@ -254,12 +280,30 @@ const markOrderAsReturned = asyncHandler(async (req, res) => {
 // access Private Admin
 
 const getUndeliveredOrders = asyncHandler(async (req, res) => {
-  const orders = await Order.find({ isDelivered: false }) // Fetch only non-delivered orders
-    .populate("user", "name email profilePicture")
-    .populate("deliveryPerson", "name profilePicture")
-    .populate("orderItems.product", "name images");
+  try {
+    console.log("🚀 [getUndeliveredOrders] Triggered");
 
-  res.json(orders);
+    const totalOrders = await Order.countDocuments();
+    console.log("📦 Total Orders:", totalOrders);
+
+    const orders = await Order.find({ isDelivered: false })
+      .populate("user", "name email")
+      .populate("orderItems.product", "brandname images price");
+
+    console.log("📬 Undelivered Orders Found:", orders.length);
+    if (orders.length > 0) {
+      console.log("🧾 Sample Order:", {
+        id: orders[0]._id,
+        user: orders[0].user?.name,
+        product: orders[0].orderItems[0]?.product?.brandname,
+      });
+    }
+
+    res.json(orders);
+  } catch (error) {
+    console.error("❌ Error inside getUndeliveredOrders:", error.message);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 // @desc Assign order to delivery person

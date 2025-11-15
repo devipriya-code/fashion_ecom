@@ -37,12 +37,12 @@ import addressimg from "../assets/profile_address.svg";
 import ordersimg from "../assets/profile_orders.svg";
 import profiletag from "../assets/profiletag.png";
 
-const ProfileScreen = ({ history }) => {
+const ProfileScreen = () => {
   const [activeSection, setActiveSection] = useState("profile");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [address, setAddress] = useState({});
-  const [profilePicture, setProfilePicture] = useState(null); // ✅ Updated to handle image
+  const [profilePicture, setProfilePicture] = useState(null);
   const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -62,10 +62,12 @@ const ProfileScreen = ({ history }) => {
 
   const orderMylist = useSelector((state) => state.orderMylist);
   const { loading: loadingOrders, error: errorOrders, orders } = orderMylist;
+
   const handleLogout = () => {
     dispatch(logout());
     navigate("/login");
   };
+
   useEffect(() => {
     if (!userInfo) {
       navigate("/login");
@@ -93,20 +95,21 @@ const ProfileScreen = ({ history }) => {
     }
   };
 
-  // ✅ Convert form fields to `FormData`
+  // ✅ Handle Profile Update
   const submitHandler = (e) => {
     e.preventDefault();
     const formData = new FormData();
     formData.append("name", name);
-    formData.append("address", JSON.stringify(address)); // ✅ Convert object to string
-    if (profilePicture) {
-      formData.append("profilePicture", profilePicture); // ✅ Append file
-    }
+    formData.append("email", email);
     formData.append("lastName", lastName);
     formData.append("gender", gender);
     formData.append("dateOfBirth", dateOfBirth);
-    dispatch(updateUserProfile(formData));
+    formData.append("address", JSON.stringify(address));
+    if (profilePicture) {
+      formData.append("profilePicture", profilePicture);
+    }
 
+    dispatch(updateUserProfile(formData));
     toast({
       title: "Profile Updated",
       description: "Your profile has been successfully updated.",
@@ -116,22 +119,33 @@ const ProfileScreen = ({ history }) => {
       position: "top",
     });
   };
-  // 🟢 Sidebar Menu Options
+
+  // ✅ Handle Address Update (separate)
+  const handleAddressUpdate = (e) => {
+    e.preventDefault();
+    const formData = new FormData();
+    formData.append("address", JSON.stringify(address));
+
+    dispatch(updateUserProfile(formData));
+    toast({
+      title: "Address Updated",
+      description: "Your address has been successfully updated.",
+      status: "success",
+      duration: 3000,
+      isClosable: true,
+      position: "top",
+    });
+
+    // Optional: refresh details
+    dispatch(getUserDetails("profile"));
+  };
+
   const menuOptions = [
     { id: "profile", label: "Profile", image: profileimg },
     { id: "addresses", label: "Address", image: addressimg },
     { id: "orders", label: "My Orders", image: ordersimg },
-    {
-      id: "about",
-      label: "About",
-      path: "/About",
-    },
-    {
-      id: "contactus",
-      label: "Contactus",
-      path: "/Contactus",
-    },
-
+    { id: "about", label: "About", path: "/About" },
+    { id: "contactus", label: "Contact Us", path: "/Contactus" },
     {
       id: "Terms and conditions",
       label: "Terms and Conditions",
@@ -139,12 +153,12 @@ const ProfileScreen = ({ history }) => {
     },
     {
       id: "Privacy policy",
-      label: "Privacy policy",
+      label: "Privacy Policy",
       path: "/_blank",
     },
     {
       id: "Return policy",
-      label: "Return policy",
+      label: "Return Policy",
       path: "/_blank",
     },
     {
@@ -159,10 +173,9 @@ const ProfileScreen = ({ history }) => {
     <Box
       mx="auto"
       p={0}
-      justifyContent="center"
-      alignItems="center"
       display="flex"
       flexDirection="column"
+      alignItems="center"
     >
       <VStack as="form" onSubmit={submitHandler} spacing={4}>
         <FormControl>
@@ -183,8 +196,6 @@ const ProfileScreen = ({ history }) => {
               alt="Profile"
               style={{ width: "100%", height: "100%", objectFit: "cover" }}
             />
-
-            {/* ✅ Upload Icon Overlay */}
             <Box
               position="absolute"
               bottom={2}
@@ -197,8 +208,6 @@ const ProfileScreen = ({ history }) => {
             >
               <Icon as={FaCamera} color="white" boxSize={5} />
             </Box>
-
-            {/* ✅ Hidden File Input */}
             <Input
               id="imageUpload"
               type="file"
@@ -213,7 +222,7 @@ const ProfileScreen = ({ history }) => {
           <FormLabel>First Name</FormLabel>
           <Input
             type="text"
-            placeholder="Enter your First name"
+            placeholder="Enter your first name"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -228,15 +237,17 @@ const ProfileScreen = ({ history }) => {
             onChange={(e) => setLastName(e.target.value)}
           />
         </FormControl>
+
         <FormControl>
           <FormLabel>Email</FormLabel>
           <Input
             type="email"
-            value={email}
             placeholder="Enter your email"
+            value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
         </FormControl>
+
         <FormControl>
           <FormLabel>Date of Birth</FormLabel>
           <Input
@@ -291,7 +302,7 @@ const ProfileScreen = ({ history }) => {
               {field.replace(/([A-Z])/g, " $1").toUpperCase()}
             </FormLabel>
             <Input
-              value={address[field]}
+              value={address[field] || ""}
               placeholder={`Enter ${field}`}
               onChange={(e) =>
                 setAddress({ ...address, [field]: e.target.value })
@@ -299,12 +310,13 @@ const ProfileScreen = ({ history }) => {
             />
           </FormControl>
         ))}
-        <Button bg="black" color="white" onClick={submitHandler}>
+        <Button bg="black" color="white" onClick={handleAddressUpdate}>
           Update
         </Button>
       </VStack>
     </Box>
   );
+
   const renderOrders = () => (
     <Box overflowX="auto">
       {loadingOrders ? (
@@ -335,7 +347,6 @@ const ProfileScreen = ({ history }) => {
                     spacing={4}
                     alignItems="center"
                   >
-                    {/* Order Details */}
                     <Text fontSize="sm" color="gray.600">
                       {order.orderItems.length} Item
                       {order.orderItems.length > 1 ? "s" : ""} • ₹
@@ -343,7 +354,6 @@ const ProfileScreen = ({ history }) => {
                       {new Date(order.createdAt).toLocaleDateString()}
                     </Text>
 
-                    {/* Product Image with Clickable Link */}
                     <Link to={`/order/${order._id}`}>
                       <Box textAlign="center">
                         <Box
@@ -360,7 +370,6 @@ const ProfileScreen = ({ history }) => {
                             style={{ objectFit: "cover" }}
                           />
                         </Box>
-                        {/* Brand Name Below Image */}
                         <Text fontWeight="bold" fontSize="sm" mt={2}>
                           {item.product.brandname}
                         </Text>
@@ -376,7 +385,6 @@ const ProfileScreen = ({ history }) => {
     </Box>
   );
 
-  // 🟢 Content Switcher
   const renderContent = () => {
     switch (activeSection) {
       case "profile":
@@ -389,24 +397,24 @@ const ProfileScreen = ({ history }) => {
         return null;
     }
   };
+
   return (
     <Box mt={20} bg="white">
       <Helmet>
         <title>Profile</title>
       </Helmet>
 
-      {/* 🟢 Sidebar & Content Layout */}
       <Flex
         direction={{ base: "column", md: "row" }}
         gap={8}
-        justify="center" // ✅ Centers content horizontally
-        align="start" // ✅ Aligns sidebar and content to the top
+        justify="center"
+        align="start"
         mx="auto"
-        maxW="1000px" // ✅ Adjusts max width for proper alignment
+        maxW="1000px"
         w="full"
         p={5}
       >
-        {/* LEFT SIDE - MENU */}
+        {/* LEFT SIDE MENU */}
         <Box
           bg="white"
           p={4}
@@ -414,19 +422,16 @@ const ProfileScreen = ({ history }) => {
           borderColor="gray.300"
           borderRadius="md"
           minW="450px"
-          h="562px" // ✅ Fixed height for right-side box
+          h="562px"
           overflowY="auto"
           css={{
             scrollbarWidth: "none",
-            "&::-webkit-scrollbar": {
-              display: "none",
-            },
+            "&::-webkit-scrollbar": { display: "none" },
           }}
         >
           <Box mb="3">
             <img src={profiletag} alt="Profile" width="full" height="full" />
           </Box>
-          {/* Desktop Sidebar */}
           <List spacing={3}>
             {menuOptions.map((menu) => (
               <ListItem key={menu.id}>
@@ -456,7 +461,7 @@ const ProfileScreen = ({ history }) => {
           </List>
         </Box>
 
-        {/* RIGHT SIDE - CONTENT */}
+        {/* RIGHT SIDE CONTENT */}
         <Box
           p={6}
           bg="white"
@@ -464,20 +469,18 @@ const ProfileScreen = ({ history }) => {
           shadow="sm"
           border="1px solid"
           borderColor="gray.300"
-          flex="1" // ✅ Allows content to take remaining space
+          flex="1"
           minW="600px"
-          h="562px" // ✅ Fixed height for right-side box
+          h="562px"
           overflow="hidden"
         >
           <Box
             h="100%"
-            overflowY="auto" // ✅ Only inner content will scroll
-            pr={2} // ✅ Adds a little space for scrollbar
+            overflowY="auto"
+            pr={2}
             css={{
               scrollbarWidth: "none",
-              "&::-webkit-scrollbar": {
-                display: "none",
-              },
+              "&::-webkit-scrollbar": { display: "none" },
             }}
           >
             {renderContent()}

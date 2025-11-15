@@ -75,8 +75,8 @@ const DeliveryDashboard = () => {
         <SimpleGrid columns={3} spacing={3}>
           {[
             { label: "Cash in hand", value: `Rs. ${cashInHand}` },
-            { label: "Pending withdraw", value: "$0K" },
-            { label: "Withdrawn", value: "$0K" },
+            { label: "Pending withdraw", value: "₹0K" },
+            { label: "Withdrawn", value: "₹0K" },
           ].map((item, index) => (
             <Box
               key={index}
@@ -95,7 +95,7 @@ const DeliveryDashboard = () => {
         </SimpleGrid>
 
         <Text mt={4} fontSize="lg" fontWeight="bold">
-          $0K
+          ₹0K
         </Text>
         <Text fontSize="sm">Withdrawable balance</Text>
       </Box>

@@ -36,7 +36,7 @@ const userSchema = mongoose.Schema(
       default: "Male",
     },
     address: {
-      doorNo: { type: Number, default: null },
+      doorNo: { type: String, default: "" },
       street: { type: String, default: "" },
       nearestLandmark: { type: String, default: "" },
       city: { type: String, default: "" },
@@ -82,15 +82,17 @@ userSchema.methods.matchPassword = async function (enteredPassword) {
 };
 
 userSchema.pre("save", async function (next) {
+  // Skip hashing if password not modified or if only OTP is being updated
   if (!this.isModified("password")) {
-    next();
+    return next();
   }
+
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
-    next(err);
+    next(error);
   }
 });
 

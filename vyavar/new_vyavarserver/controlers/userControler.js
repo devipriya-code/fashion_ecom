@@ -86,17 +86,16 @@ const sendOtpToEmail = asyncHandler(async (req, res) => {
   if (user) {
     user.otp = otp;
     user.expiresAt = expiresAt;
-    await user.save();
+    await user.save({ validateBeforeSave: false });
   } else {
-    // Save user with dummy values to bypass validation
     user = new User({
-      name: "temp", // temporary placeholder
+      name: "temp",
       email,
-      password: "temp1234", // must be valid per schema
+      password: "temp1234",
       otp,
       expiresAt,
     });
-    await user.save({ validateBeforeSave: false }); // skip validation
+    await user.save({ validateBeforeSave: false });
   }
 
   await RegisterEmailOtp({
@@ -113,19 +112,43 @@ const sendOtpToEmail = asyncHandler(async (req, res) => {
 // @access Public
 const verifyOtp = asyncHandler(async (req, res) => {
   const { email, otp } = req.body;
+  console.log("Incoming verify request:", req.body);
 
-  const user = await User.findOne({ email });
+  const user = await User.findOne({ email }).select("+otp +expiresAt");
+  console.log("Found user:", user);
 
-  if (!user || user.otp !== otp || user.expiresAt < new Date()) {
-    res.status(400);
-    throw new Error("Invalid or expired OTP");
+  if (!user) {
+    return res.status(400).json({ message: "User not found" });
   }
 
+  console.log("Stored OTP:", user.otp, "Received OTP:", otp);
+
+  if (!user.otp) {
+    return res
+      .status(400)
+      .json({ message: "No OTP found. Please request again." });
+  }
+
+  const isExpired = user.expiresAt && user.expiresAt < new Date();
+  if (isExpired) {
+    return res
+      .status(400)
+      .json({ message: "OTP expired. Please request again." });
+  }
+
+  if (user.otp !== otp) {
+    console.log("OTP mismatch:", { stored: user.otp, received: otp });
+    return res.status(400).json({ message: "Invalid OTP" });
+  }
+
+  // ✅ OTP verified successfully
   user.otp = undefined;
-  user.otpExpires = undefined;
+  user.expiresAt = undefined;
   await user.save();
 
-  res.json({ success: true, message: "OTP verified successfully" });
+  console.log("OTP verified successfully for:", email);
+
+  res.status(200).json({ message: "OTP verified successfully", success: true });
 });
 // @desc Send OTP to email for password reset
 // @route POST /api/users/forgot-password
@@ -161,8 +184,14 @@ const PasswordResetOtp = asyncHandler(async (req, res) => {
 // @desc Reset password using OTP
 // @route POST /api/users/reset-password
 // @access Public
+// CONTROLLER: api/users/resetPassword
 const resetPasswordWithOtp = asyncHandler(async (req, res) => {
-  const { email, otp, newPassword } = req.body;
+  const { email, otp, password } = req.body; // 🛑 Check for empty values, which would fail Mongoose's 'required: true'
+
+  if (!email || !otp || !password || password.trim() === "") {
+    res.status(400);
+    throw new Error("Email, OTP, and a non-empty new password are required");
+  }
 
   const user = await User.findOne({ email });
 
@@ -171,15 +200,17 @@ const resetPasswordWithOtp = asyncHandler(async (req, res) => {
     throw new Error("Invalid or expired OTP");
   }
 
-  user.password = newPassword;
+  user.password = password; // This will now be the non-empty string
   user.otp = undefined;
   user.expiresAt = undefined;
 
-  await user.save();
+  await user.save(); // This should now successfully hash and save the new password
 
   res.status(200).json({ message: "Password reset successfully" });
 });
 
+// ROUTER:
+// router.post("/resetPassword", resetPasswordWithOtp); // No change needed here
 // @desc Get user profile
 // @route GET /api/users/profile
 // @access Private
@@ -191,6 +222,9 @@ const getUserProfile = asyncHandler(async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      lastName: user.lastName,
+      gender: user.gender,
+      dateOfBirth: user.dateOfBirth,
       isAdmin: user.isAdmin,
       profilePicture: user.profilePicture,
       isDelivery: user.isDelivery,
@@ -232,7 +266,17 @@ const updateUserProfile = asyncHandler(async (req, res) => {
     // ✅ Parse address if it exists and is a string
     if (req.body.address) {
       try {
-        user.address = JSON.parse(req.body.address); // ✅ Correctly parsing the string into an object
+        let parsedAddress =
+          typeof req.body.address === "string"
+            ? JSON.parse(req.body.address)
+            : req.body.address;
+
+        // ✅ Convert numeric fields properly
+        if (parsedAddress.pin) parsedAddress.pin = Number(parsedAddress.pin);
+        if (parsedAddress.phoneNumber)
+          parsedAddress.phoneNumber = Number(parsedAddress.phoneNumber);
+
+        user.address = parsedAddress;
       } catch (err) {
         console.error("Error parsing address JSON:", err.message);
         return res.status(400).json({ message: "Invalid address format" });
