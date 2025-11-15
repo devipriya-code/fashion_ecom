@@ -64,7 +64,7 @@ const orderSchema = mongoose.Schema(
       },
     ],
     shippingAddress: {
-      doorNo: { type: Number, default: null },
+      doorNo: { type: String, default: "" },
       street: { type: String, default: "" },
       nearestLandmark: { type: String, default: "" },
       city: { type: String, default: "" },

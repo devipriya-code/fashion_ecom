@@ -8,23 +8,34 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-const RegisterEmailOtp = async ({ email, status, orderId}) => {
+const RegisterEmailOtp = async ({ email, status, orderId }) => {
+  // orderId here is actually OTP (you’re passing `OTP-${otp}` from controller)
+  const otp = orderId.replace("OTP-", ""); // Extract just the OTP number
+
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
-    subject: `${status}`,
-    text: `Hello, your One-Time-Password is ${orderId}`,
-    html: `<p>Hello, your order with ID <strong>${orderId}</strong> has been updated to status: <strong>${status}</strong>.</p><p>Thank you for shopping with us!</p>`,
+    subject: "Your OTP for Account Verification",
+    text: `Your One-Time Password (OTP) is ${otp}. It will expire in 10 minutes.`,
+    html: `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+        <h2 style="color: #007bff;">Email Verification</h2>
+        <p>Dear User,</p>
+        <p>Your One-Time Password (OTP) for verification is:</p>
+        <h3 style="background: #f3f3f3; padding: 10px; display: inline-block; border-radius: 6px;">${otp}</h3>
+        <p>This OTP will expire in <strong>10 minutes</strong>.</p>
+        <p>If you didn’t request this, please ignore this email.</p>
+        <br/>
+        <p>Best regards,<br/>Eco AI Trackers Team</p>
+      </div>
+    `,
   };
-  console.log("Sending email to:", email);
-  console.log("Email options:", mailOptions);
-  console.log("Status:", status);
-  console.log("Transporter:", transporter);
+
   try {
     const info = await transporter.sendMail(mailOptions);
-    console.log("Email sent:", info.response);
+    console.log("✅ OTP Email sent:", info.response);
   } catch (error) {
-    console.error("Email send failed:", error);
+    console.error("❌ Email send failed:", error);
   }
 };
 

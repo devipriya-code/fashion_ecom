@@ -137,6 +137,7 @@ export const resetPassword = (email, otp, password) => async (dispatch) => {
     });
   }
 };
+
 export const login = (email, password) => async (dispatch) => {
   try {
     dispatch({
@@ -261,23 +262,38 @@ export const updateUserProfile = (formData) => async (dispatch, getState) => {
     const {
       userLogin: { userInfo },
     } = getState();
-
+    
     const config = {
       headers: {
-        "Content-Type": "multipart/form-data",
+        // 'Content-Type': 'multipart/form-data' is implicitly handled
         Authorization: `Bearer ${userInfo.token}`,
       },
     };
 
+    // Assuming your backend uses a PUT request for profile update
     const { data } = await axios.put(
-      `${API_URL}/api/users/profile`,
-      formData,
+      `${API_URL}/api/users/profile`, // Adjust endpoint if needed
+      formData, // Pass the FormData object directly
       config
     );
+
     dispatch({
       type: USER_UPDATE_PROFILE_SUCCESS,
       payload: data,
     });
+
+    // Optionally update the user details in the store after a successful update
+    dispatch({
+      type: USER_DETAILS_SUCCESS,
+      payload: data, // Assuming the backend returns the updated user object
+    });
+
+    // Optionally update the user login state if token or name changes
+    dispatch({
+      type: USER_LOGIN_SUCCESS,
+      payload: data, // Assuming the backend returns the updated user object
+    });
+    localStorage.setItem("userInfo", JSON.stringify(data));
   } catch (error) {
     dispatch({
       type: USER_UPDATE_PROFILE_FAIL,
