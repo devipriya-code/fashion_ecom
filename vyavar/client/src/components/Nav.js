@@ -122,7 +122,7 @@ const Nav = () => {
               value={searchKeyword}
               onChange={onSearchChange}
               ref={searchRef}
-              color="white"
+              color="black"
             />
             <InputLeftElement>
               <Button className="search-button" type="submit" size="40">

@@ -42,10 +42,10 @@ const QuickPicks = ({ category }) => {
   const selectedCategories =
     category === "Men" ? mencategories : womencategories;
   // const handleCategoryClick = (filter) => {
-  //   history.push(`/products/${filter}?gender=${category}`);
+  //   history.push(/products/${filter}?gender=${category});
   // };
   const handleCategoryClick = (filter) => {
-    navigate(`/products?category=${filter}&gender=${category}`); // Pass category and gender
+    navigate(`/products?category=${filter}&gender=${category}`); 
   };
 
   return (
@@ -69,4 +69,4 @@ const QuickPicks = ({ category }) => {
   );
 };
 
-export default QuickPicks;
+export default QuickPicks;
